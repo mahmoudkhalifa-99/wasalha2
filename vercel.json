@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "buildCommand": "bash scripts/vercel-build.sh",
+  "outputDirectory": "build/web",
+  "cleanUrls": true,
+  "routes": [
+    {
+      "src": "/firebase-messaging-sw.js",
+      "headers": { "Content-Type": "application/javascript; charset=utf-8" },
+      "continue": true
+    },
+    { "handle": "filesystem" },
+    { "src": "/.*", "dest": "/index.html" }
+  ]
+}

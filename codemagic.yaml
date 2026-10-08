@@ -1,0 +1,210 @@
+# إعداد Codemagic لتطبيق وصلها (Flutter) - Android فقط
+#
+# قبل ما تستخدم الملف ده، لازم:
+# 1) تشغّل `flutter create --org com.wasalah .` محليًا وترفع android/ على Git
+#    (Codemagic بيبني المشروع زي ما هو من الريبو، مش بيولّد المنصات بنفسه)
+# 2) تظبط applicationId يبقى متطابق مع القيمة هنا (PACKAGE_NAME)
+#    أو تعدّل القيمة دي تحت لو سبت الـ ID اللي اتولّد افتراضيًا
+# 3) غيّر your-email@example.com تحت لإيميلك الحقيقي
+
+workflows:
+  android-workflow:
+    name: وصلها - Android
+    max_build_duration: 60
+    instance_type: linux_x2
+    environment:
+      flutter: stable
+      groups:
+        - Wasalha
+      vars:
+        PACKAGE_NAME: "com.wasalah.app"
+    scripts:
+      - name: توليد مجلد android لو غير موجود
+        script: |
+          if [ ! -f "android/app/build.gradle" ] && [ ! -f "android/app/build.gradle.kts" ]; then
+            echo "مجلد android مش موجود - جاري توليده..."
+            flutter create --platforms=android --org com.wasalah --project-name wasalha .
+          else
+            echo "مجلد android موجود بالفعل"
+          fi
+
+      # flutter create بيولّد test/widget_test.dart الافتراضي (بيشير لـ MyApp اللي مش
+      # موجود عندنا) فبيكسر flutter analyze و flutter test. بنشيله لو هو الملف
+      # الافتراضي بس (أي widget_test حقيقي في الريبو مبيتلمسش).
+      - name: حذف widget_test الافتراضي الناتج عن flutter create
+        script: |
+          if [ -f test/widget_test.dart ] && grep -q "const MyApp()" test/widget_test.dart; then
+            rm -f test/widget_test.dart
+            echo "اتحذف test/widget_test.dart الافتراضي"
+          fi
+
+      - name: تطبيق إعدادات وصلها على مشروع الأندرويد (applicationId + صلاحيات + أيقونات)
+        script: |
+          if [ -n "${GOOGLE_SERVICES_JSON:-}" ]; then
+            echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android_overrides/google-services.json
+          fi
+          python3 tools/patch_android.py
+
+      - name: إعداد توقيع الـ Release (keystore ثابت)
+        script: |
+          if [ -n "${CM_KEYSTORE:-}" ] && [ -n "${CM_KEYSTORE_PASSWORD:-}" ] && [ -n "${CM_KEY_ALIAS:-}" ] && [ -n "${CM_KEY_PASSWORD:-}" ]; then
+            echo "$CM_KEYSTORE" | base64 --decode > android/app/keystore.jks
+            cat > android/key.properties <<KEYEOF
+          storePassword=$CM_KEYSTORE_PASSWORD
+          keyPassword=$CM_KEY_PASSWORD
+          keyAlias=$CM_KEY_ALIAS
+          storeFile=keystore.jks
+          KEYEOF
+            python3 - <<'PYEOF'
+          import sys
+          path = "android/app/build.gradle.kts"
+          with open(path) as f:
+              content = f.read()
+
+          if "keystoreProperties" not in content:
+              header = (
+                  "import java.util.Properties\n"
+                  "import java.io.FileInputStream\n\n"
+                  "val keystoreProperties = Properties()\n"
+                  "val keystorePropertiesFile = rootProject.file(\"key.properties\")\n"
+                  "if (keystorePropertiesFile.exists()) {\n"
+                  "    keystoreProperties.load(FileInputStream(keystorePropertiesFile))\n"
+                  "}\n\n"
+              )
+              content = header + content
+
+          if "signingConfigs {" not in content:
+              content = content.replace(
+                  "android {",
+                  "android {\n"
+                  "    signingConfigs {\n"
+                  "        create(\"release\") {\n"
+                  "            keyAlias = keystoreProperties[\"keyAlias\"] as String?\n"
+                  "            keyPassword = keystoreProperties[\"keyPassword\"] as String?\n"
+                  "            storeFile = keystoreProperties[\"storeFile\"]?.let { file(it) }\n"
+                  "            storePassword = keystoreProperties[\"storePassword\"] as String?\n"
+                  "        }\n"
+                  "    }\n",
+                  1,
+              )
+
+          content = content.replace(
+              'signingConfig = signingConfigs.getByName("debug")',
+              'signingConfig = signingConfigs.getByName("release")',
+              1,
+          )
+
+          with open(path, "w") as f:
+              f.write(content)
+          PYEOF
+            echo "تم إعداد توقيع الـ Release بالـ keystore الثابت"
+          else
+            echo "تنبيه: متغيرات الـ keystore (CM_KEYSTORE, CM_KEYSTORE_PASSWORD, CM_KEY_ALIAS, CM_KEY_PASSWORD) مش موجودة - هيتم التوقيع بمفتاح debug مؤقت (مش هيشتغل تسجيل الدخول بجوجل)"
+          fi
+
+      - name: تفعيل Core Library Desugaring (مطلوب لـ flutter_local_notifications)
+        script: |
+          GRADLE_FILE="android/app/build.gradle.kts"
+          [ -f "$GRADLE_FILE" ] || GRADLE_FILE="android/app/build.gradle"
+          if [ -f "$GRADLE_FILE" ] && ! grep -q "isCoreLibraryDesugaringEnabled\|coreLibraryDesugaringEnabled" "$GRADLE_FILE"; then
+            python3 - "$GRADLE_FILE" <<'PYEOF'
+          import sys
+          path = sys.argv[1]
+          with open(path) as f:
+              content = f.read()
+
+          if path.endswith(".kts"):
+              if "compileOptions {" in content:
+                  content = content.replace(
+                      "compileOptions {",
+                      "compileOptions {\n        isCoreLibraryDesugaringEnabled = true",
+                      1,
+                  )
+              if "coreLibraryDesugaring(" not in content:
+                  if "dependencies {" in content:
+                      content = content.replace(
+                          "dependencies {",
+                          'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")',
+                          1,
+                      )
+                  else:
+                      content += '\n\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
+          else:
+              if "compileOptions {" in content:
+                  content = content.replace(
+                      "compileOptions {",
+                      "compileOptions {\n        coreLibraryDesugaringEnabled true",
+                      1,
+                  )
+              if "coreLibraryDesugaring " not in content and "coreLibraryDesugaring(" not in content:
+                  if "dependencies {" in content:
+                      content = content.replace(
+                          "dependencies {",
+                          "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'",
+                          1,
+                      )
+                  else:
+                      content += "\n\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'\n}\n"
+
+          with open(path, "w") as f:
+              f.write(content)
+          PYEOF
+            echo "تم تفعيل desugaring في $GRADLE_FILE"
+          else
+            echo "desugaring مفعّل بالفعل أو الملف مش موجود"
+          fi
+
+      - name: التأكد من وجود مجلد assets/images
+        script: |
+          mkdir -p assets/images
+          [ -f assets/images/.gitkeep ] || touch assets/images/.gitkeep
+
+      - name: تثبيت الباكدجات
+        script: flutter pub get
+
+      # ===================== مراحل التحقق (قبل أي Release) =====================
+      # كل مرحلة أمر واحد: أي exit code غير صفري = الـ workflow يفشل ومبينتقلش
+      # لأي مرحلة بعدها (لا لـ Release APK ولا App Bundle).
+      #
+      # التحليل على مرحلتين:
+      #  1) الموديول (core/map + features/tracking + test/tracking): صارم بالكامل
+      #     (أي info/warning يفشل) لأننا بنملكه ونظيف.
+      #  2) المشروع كله: بيفشل على الأخطاء (errors) بس. فيه ~250 ملاحظة قديمة
+      #     برّه الموديول (معظمها withOpacity المهجور) — بنعالجها لاحقًا وبعدين
+      #     نشدّد المرحلة دي بإزالة --no-fatal-*.
+      - name: تحليل الموديول بصرامة (flutter analyze)
+        script: flutter analyze lib/core/map lib/features/tracking test/tracking
+
+      - name: تحليل المشروع كله - أخطاء فقط (flutter analyze)
+        script: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: تشغيل الاختبارات (flutter test)
+        script: flutter test
+
+      - name: بناء Debug APK للتحقق (flutter build apk --debug)
+        script: flutter build apk --debug --dart-define=PUSH_RELAY_URL=${PUSH_RELAY_URL:-}
+
+      # الـ Debug APK للتحقق فقط — بنشيله عشان ما يتحطش في الـ artifacts جنب الـ Release.
+      - name: حذف Debug APK من المخرجات
+        script: rm -f build/app/outputs/flutter-apk/app-debug.apk*
+      # ===================== نهاية مراحل التحقق =====================
+
+      - name: توليد أيقونة التطبيق (launcher icon)
+        script: |
+          dart run flutter_launcher_icons
+
+      - name: بناء APK
+        script: flutter build apk --release --dart-define=PUSH_RELAY_URL=${PUSH_RELAY_URL:-}
+
+      - name: بناء App Bundle (للنشر على Google Play)
+        script: flutter build appbundle --release --dart-define=PUSH_RELAY_URL=${PUSH_RELAY_URL:-}
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
+      - build/app/outputs/bundle/release/*.aab
+    publishing:
+      email:
+        recipients:
+          - mahmoudkhalifa.kh91@gmail.com
+        notify:
+          success: true
+          failure: true

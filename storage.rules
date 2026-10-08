@@ -1,0 +1,44 @@
+rules_version = '2';
+
+// قواعد Firebase Storage لتطبيق وصلها.
+// انشرها من: firebase deploy --only storage
+// (أو الصقها في Firebase Console ← Storage ← Rules ← Publish)
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // صور الروشتة: العميل يرفع في مجلده بس (صورة، أقل من 2 ميجا).
+    // القراءة لأي مستخدم مسجّل (الكابتن لازم يشوفها). الرابط نفسه فيه توكن
+    // عشوائي طويل ومش بيظهر إلا في وثيقة الطلب.
+    match /prescriptions/{uid}/{file} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+          && request.auth.uid == uid
+          && request.resource.size < 2 * 1024 * 1024
+          && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow update, delete: if false;
+    }
+
+    // مستندات توثيق الكباتن: خاصة بالكامل. ممنوع روابط عامة (الأدمن بيقرأ بـ getData مش getDownloadURL).
+    // القراءة: الكابتن صاحبها أو السوبر أدمن فقط. الإنشاء: الكابتن لنفسه فقط، JPEG أقل من 6 ميجا،
+    // وبدون استبدال أو حذف (النسخ القديمة بتتحفظ v1/v2/v3...).
+    function roleOf() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role;
+    }
+    match /captain_docs/{uid}/{type}/{file} {
+      allow read: if request.auth != null && (request.auth.uid == uid || roleOf() == 'ADMIN');
+      allow create: if request.auth != null
+          && request.auth.uid == uid
+          && roleOf() == 'DRIVER'
+          && type in ['idFront', 'idBack', 'selfieWithId', 'poseRight', 'poseLeft',
+                      'drivingLicense', 'vehicleLicense', 'vehiclePhoto']
+          && file.matches('v[0-9]+[.]jpg')
+          && request.resource.size < 6 * 1024 * 1024
+          && request.resource.contentType == 'image/jpeg';
+      allow update, delete: if false;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

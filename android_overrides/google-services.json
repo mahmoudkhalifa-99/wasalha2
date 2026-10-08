@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "821734316791",
+    "firebase_url": "https://sada-51292-default-rtdb.firebaseio.com",
+    "project_id": "sada-51292",
+    "storage_bucket": "sada-51292.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:821734316791:android:aa1ab6b3f528af7868d1f2",
+        "android_client_info": {
+          "package_name": "com.wasalah.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "821734316791-0r6vbtk6g3jft39r8dmb21m9m5oo1a77.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.wasalah.app",
+            "certificate_hash": "5896d98fff03b75f81044eb0ede8020ee4014e27"
+          }
+        },
+        {
+          "client_id": "821734316791-v4n5r7slachnbfj51nnnbborae0r81jn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBotBdkEY8NKXwJBnTcB4FDQLSpb0PCX68"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "821734316791-v4n5r7slachnbfj51nnnbborae0r81jn.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

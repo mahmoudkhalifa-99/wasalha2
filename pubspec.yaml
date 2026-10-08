@@ -1,0 +1,59 @@
+name: wasalha
+description: وصلها - خدمة التوصيل الذكية بمحافظة المنوفية
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # Firebase (نفس المشروع sada-51292 المستخدم في نسخة الويب)
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  cloud_firestore: ^5.4.4
+  firebase_storage: ^12.3.2
+  firebase_messaging: ^15.1.3
+  google_sign_in: ^6.2.2
+  flutter_local_notifications: ^19.0.0
+  permission_handler: ^11.3.1
+  shared_preferences: ^2.2.3
+
+  # الخرائط (بديل Leaflet) + الموقع
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  geolocator: ^13.0.1
+
+  # أدوات
+  http: ^1.2.2
+  image: ^4.2.0
+  camera: ^0.11.0+2   # تصوير المستندات داخل التطبيق (إطار إرشادي، بدون معرض الصور)
+  crypto: ^3.0.3      # SHA-256 لبصمة الإقرار والصور
+  url_launcher: ^6.3.1
+  google_fonts: ^6.2.1
+  lucide_icons_flutter: ^3.1.13
+  flutter_svg: ^2.0.10+1
+  intl: any
+  file_selector: ^1.0.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+
+# إعداد أيقونة التطبيق (بيتولّد بـ: dart run flutter_launcher_icons)
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/images/icon-512.png"
+  min_sdk_android: 23
