@@ -208,3 +208,40 @@ workflows:
         notify:
           success: true
           failure: true
+
+  # ===================== نسخة الويب (رابط يفتحه أي حد بدون تحميل) =====================
+  # المطلوب مرة واحدة في Codemagic: Group جديد اسمه Vercel فيه VERCEL_TOKEN (Secure)
+  # من https://vercel.com/account/tokens . من غير التوكن الـ workflow بيبني بس
+  # وبيطلّع build/wasalha-web.zip في الـ artifacts تنزّله وترفعه يدوي.
+  web-workflow:
+    name: وصلها - Web (Vercel)
+    max_build_duration: 30
+    instance_type: linux_x2
+    environment:
+      flutter: stable
+      groups:
+        - Wasalha
+        - Vercel
+      vars:
+        VERCEL_PROJECT: "wasalha"
+    scripts:
+      - name: بناء نسخة الويب
+        script: bash tools/build_web.sh
+      - name: رفع على Vercel (لو VERCEL_TOKEN موجود)
+        script: |
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "VERCEL_TOKEN مش موجود - تخطي الرفع. نزّل build/wasalha-web.zip من الـ artifacts."
+            exit 0
+          fi
+          cd build/web
+          npx --yes vercel@latest link --yes --project "$VERCEL_PROJECT" --token "$VERCEL_TOKEN"
+          npx --yes vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN"
+    artifacts:
+      - build/wasalha-web.zip
+    publishing:
+      email:
+        recipients:
+          - mahmoudkhalifa.kh91@gmail.com
+        notify:
+          success: true
+          failure: true
