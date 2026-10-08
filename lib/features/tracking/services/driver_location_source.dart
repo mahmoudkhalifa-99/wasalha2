@@ -64,7 +64,9 @@ class DriverLocationPublisher {
   DriverLocationPublisher(
     this.driverId, {
     FirebaseFirestore? firestore,
-    this.minInterval = const Duration(seconds: 5),
+    // 12 ثانية بدل 5: بيقلل كتابات Firestore للنص تقريباً (الخطة المجانية 20 ألف كتابة/يوم)
+    // وفاضل أقل بكتير من liveThreshold (30 ثانية) فالموقع يفضل "مباشر" عند العميل.
+    this.minInterval = const Duration(seconds: 12),
     this.minDistanceMeters = 15,
   }) : _db = firestore ?? FirebaseFirestore.instance;
 

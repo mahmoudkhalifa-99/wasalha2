@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show SocketException;
 
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
@@ -43,6 +44,8 @@ class OsrmRoutingService implements RoutingService {
           .timeout(timeout);
     } on TimeoutException {
       throw const RoutingException(RoutingFailure.timeout);
+    } on SocketException catch (e) {
+      throw RoutingException(RoutingFailure.network, e.message);
     } on http.ClientException catch (e) {
       throw RoutingException(RoutingFailure.network, e.message);
     } catch (e) {

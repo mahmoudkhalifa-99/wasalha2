@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -51,7 +52,10 @@ Future<void> _initServices() async {
     // التهيئة اتعملت قبل كده (native) — عادي نكمل
     if (e.code != 'duplicate-app') rethrow;
   }
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  // الويب: الـ handler بيتسجل في service worker مش من هنا (أندرويد زي ما هو)
+  if (!kIsWeb) {
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  }
   try {
     await NotificationService.init().timeout(const Duration(seconds: 8));
   } catch (e) {

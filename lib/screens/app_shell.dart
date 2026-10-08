@@ -1,8 +1,9 @@
 import 'dart:async';
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart' hide Order, Blob;
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -130,9 +131,13 @@ class _AppShellState extends State<AppShell> {
   }
 
   Future<bool> _isOnline() async {
-    // Browser networking is controlled by the browser; avoid dart:io here.
-    if (kIsWeb) return true;
-    return true;
+    try {
+      final r = await InternetAddress.lookup('google.com')
+          .timeout(const Duration(seconds: 3));
+      return r.isNotEmpty && r.first.rawAddress.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
   }
 
   void _fetchUserData(String uid) {

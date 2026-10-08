@@ -1,5 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -28,6 +28,14 @@ final GoogleSignIn _googleSignIn = GoogleSignIn(
 /// صفحة firebaseapp.com ولا خطأ "missing initial state" ولا اختيار حساب مرتين.
 /// المطلوب: google-services.json محدّث + بصمة SHA-1 مسجلة في Firebase.
 Future<UserCredential> signInWithGoogle() async {
+  if (kIsWeb) {
+    // الويب: نافذة جوجل من Firebase مباشرة (plugin الأندرويد مش مناسب هنا)
+    final provider = GoogleAuthProvider()
+      ..addScope('email')
+      ..addScope('profile')
+      ..setCustomParameters({'prompt': 'select_account'});
+    return auth.signInWithPopup(provider);
+  }
   // نخرّج الحساب السابق عشان قايمة الحسابات تظهر كل مرة
   try {
     await _googleSignIn.signOut();
@@ -58,6 +66,10 @@ Future<void> reauthenticateWithGoogle() async {
   final user = auth.currentUser;
   if (user == null) {
     throw FirebaseAuthException(code: 'no-current-user');
+  }
+  if (kIsWeb) {
+    await user.reauthenticateWithPopup(GoogleAuthProvider());
+    return;
   }
   try {
     await _googleSignIn.signOut();
